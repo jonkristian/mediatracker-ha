@@ -1,0 +1,28 @@
+{
+    "title": "Media Tracker",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect your Media Tracker",
+                "data": {
+                    "host": "Address and Port",
+                    "token": "Token"
+                }
+            },
+            "discovery_confirm": {
+                "description": "Do you want to start set up?"
+            },
+            "reauth_confirm": {
+                "title": "Connect your Media Tracker",
+                "data": {
+                    "host": "Address and Port",
+                    "token": "Token"
+                }
+            }
+        },
+        "abort": {
+            "already_configured": "Already configured. Only a single configuration possible.",
+            "already_in_progress": "Already in progress."
+        }
+    }
+}

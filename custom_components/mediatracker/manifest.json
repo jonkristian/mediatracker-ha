@@ -1,0 +1,15 @@
+{
+  "domain": "mediatracker",
+  "name": "Media Tracker",
+  "config_flow": true,
+  "documentation": "https://github.com/jonkristian/mediatracker-ha",
+  "issue_tracker": "https://github.com/jonkristian/mediatracker-ha/issues",
+  "version": "0.1.0",
+  "requirements": [
+    "pymediatracker==0.1.0"
+  ],
+  "codeowners": [
+    "@jonkristian"
+  ],
+  "iot_class": "local_polling"
+}

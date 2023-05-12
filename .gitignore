@@ -1,0 +1,46 @@
+# Packages
+*.egg
+*.egg-info
+eggs
+.eggs
+.mypy_cache
+
+# GITHUB Proposed Python stuff:
+*.py[cod]
+
+# emacs auto backups
+*~
+*#
+*.orig
+.idea
+
+# artifacts
+__pycache__
+.pytest*
+*.egg-info
+*/build/*
+*/dist/*
+*.temp*
+
+
+# misc
+.coverage
+.vscode
+coverage.xml
+
+
+# Home Assistant configuration
+.cloud
+.HA_VERSION
+.storage
+automations.yaml
+blueprints
+configuration.yaml
+deps
+home-assistant_v2*
+home-assistant.log*
+tts
+scenes.yaml
+scripts.yaml
+secrets.yaml
+custom_libraries/
