@@ -61,8 +61,7 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
         for item in self.coordinator.data.items:
             if self._attr_unique_id in item.mediaType:
                 media = get_media(item)
-
-                if item is not None:
+                if media is not None:
                     event = CalendarEvent(
                         summary=media["title"],
                         description=media["description"],
@@ -75,28 +74,8 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
         return events
 
 
-def get_release_date(due) -> datetime | date | None:
-    """Return formatted release date for media tracker item."""
-
-    if due.endswith("000Z"):
-        start = dt.parse_datetime(due.replace("Z", "+00:00"))
-        if not start:
-            return None
-
-        return dt.as_local(start)
-
-    if due is not None:
-        start = dt.parse_date(due)
-        return dt.start_of_local_day(start)
-
-    return None
-
-
 def get_media(item) -> object | None:
     """Return formatted calendar entry based on media type."""
-    if item.mediaType is None:
-        return
-
     media_title = ""
     media_episode_title = ""
     media_episode_nr = ""
@@ -125,10 +104,10 @@ def get_media(item) -> object | None:
 
     if item.mediaType == "tv":
         media_title = f"{item.title}"
-        media_description = item.overview
+        media_description = {item.overview}
         media_release = get_release_date(item.releaseDate)
 
-        if item.upcomingEpisode:
+        if item.upcomingEpisode.episodeNumber is not None:
             episode = item.upcomingEpisode
             if episode.title and AVOID_EPISODE_SPOILERS is False:
                 media_episode_title = f" - {episode.title}"
@@ -142,8 +121,36 @@ def get_media(item) -> object | None:
             media_description = episode.description
             media_release = get_release_date(episode.releaseDate)
 
-    return {
-        "title": media_title,
-        "description": media_description,
-        "release": media_release,
-    }
+    if media_release is not None:
+        return {
+            "title": media_title,
+            "description": media_description,
+            "release": media_release,
+        }
+
+
+def get_release_date(due) -> datetime | date | None:
+    """Return formatted release date for media tracker item."""
+    if due is not None:
+        if due.endswith("000Z"):
+            start = dt.parse_datetime(due.replace("Z", "+00:00"))
+            if not start:
+                return None
+
+            return dt.as_local(start)
+
+        if check_date(due):
+            start = dt.parse_date(due)
+            return dt.start_of_local_day(start)
+
+    return None
+
+
+def check_date(date_str):
+    """Check a date string for bare minimum"""
+    try:
+        if date_str != datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d"):
+            raise ValueError
+        return True
+    except ValueError:
+        return False
