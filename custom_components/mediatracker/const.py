@@ -7,4 +7,5 @@ ATTR_KEYWORD = "keyword"
 # Services
 SERVICE_SEARCH = "search"
 
-AVOID_EPISODE_SPOILERS = True
+EPISODE_SPOILERS = True
+EXPAND_DETAILS = True

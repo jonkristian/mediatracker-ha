@@ -8,6 +8,11 @@
 
 [MediaTracker](https://github.com/bonukai/MediaTracker) is a self hosted platform for tracking movies, tv shows, video games, books and audiobooks.
 
+
+**Code is early development so you should expect bugs! If you do, please report :-)**
+
+---
+
 ## Installation
 
 ### Installation via Home Assistant Community Store (HACS)

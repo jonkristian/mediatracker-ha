@@ -4,6 +4,9 @@ import logging
 from datetime import date, datetime, timedelta
 from homeassistant.util import dt
 
+from pymediatracker.objects.calendar import MediaTrackerCalendar
+from pymediatracker.exceptions import MediaTrackerException
+
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.config_entries import ConfigEntry
@@ -11,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import MediaTrackerEntity
-from .const import DOMAIN, AVOID_EPISODE_SPOILERS
+from .const import DOMAIN, EPISODE_SPOILERS, EXPAND_DETAILS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +39,7 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
-        entity: MediaTrackerEntity,
+        entity: str,
     ) -> None:
         """Initialize the MediaTracker entity."""
         super().__init__(coordinator)
@@ -58,75 +61,63 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
     ) -> list[CalendarEvent]:
         """Return calendar events within a datetime range."""
         events = []
-        for item in self.coordinator.data.items:
-            if self._attr_unique_id in item.mediaType:
-                media = get_media(item)
-                if media is not None:
-                    event = CalendarEvent(
-                        summary=media["title"],
-                        description=media["description"],
-                        start=media["release"],
-                        end=media["release"] + timedelta(hours=2),
-                    )
 
+        start = start_date.strftime("%Y-%m-%d")
+        end = end_date.strftime("%Y-%m-%d")
+
+        for calendar_item in await self.coordinator.data.get_calendar_items(start, end):
+           if self._attr_unique_id in calendar_item.mediaItem.mediaType:
+                event = await get_calendar_item(self.coordinator.data, calendar_item)
+                if event is not None:
                     events.append(event)
 
         return events
 
 
-def get_media(item) -> object | None:
+async def get_calendar_item(client, calendar_item) -> object | None:
     """Return formatted calendar entry based on media type."""
-    media_title = ""
+    media = calendar_item.mediaItem
+
+    media_title = media.title
+    media_release = get_release_date(calendar_item.releaseDate)
+    media_poster = ""
+    media_description = ""
     media_episode_title = ""
     media_episode_nr = ""
-    media_description = ""
-    media_release = ""
 
-    if item.mediaType == "audiobook":
-        media_title = item.title
-        media_description = item.overview
-        media_release = get_release_date(item.releaseDate)
+    #if media.mediaType == "audiobook":
+    #if media.mediaType == "book":
+    #if media.mediaType == "video_game":
+    #if media.mediaType == "movie":
 
-    if item.mediaType == "book":
-        media_title = item.title
-        media_description = item.overview
-        media_release = get_release_date(item.releaseDate)
+    if media.mediaType == "tv":
+        media_title = f"{media.title}"
+        media_release = get_release_date(calendar_item.releaseDate)
 
-    if item.mediaType == "video_game":
-        media_title = item.title
-        media_description = item.overview
-        media_release = get_release_date(item.releaseDate)
+        if EXPAND_DETAILS is True:
+            item_details = await client.get_item(media.id)
+            media_description = item_details.overview
+            media_poster = item_details.poster
 
-    if item.mediaType == "movie":
-        media_title = item.title
-        media_description = item.overview
-        media_release = get_release_date(item.releaseDate)
+        if calendar_item.episode.episodeNumber is not None:
+            if calendar_item.episode.title and EPISODE_SPOILERS is True:
+                media_episode_title = f" - {calendar_item.episode.title}"
 
-    if item.mediaType == "tv":
-        media_title = f"{item.title}"
-        media_description = {item.overview}
-        media_release = get_release_date(item.releaseDate)
-
-        if item.upcomingEpisode.episodeNumber is not None:
-            episode = item.upcomingEpisode
-            if episode.title and AVOID_EPISODE_SPOILERS is False:
-                media_episode_title = f" - {episode.title}"
-
-            if episode.episodeNumber is not None:
+            if calendar_item.episode.episodeNumber is not None:
                 media_episode_nr = (
-                    f" - S{episode.episodeNumber:02d}E{episode.seasonNumber:02d}"
+                    f" S{calendar_item.episode.seasonNumber:02d}E{calendar_item.episode.episodeNumber:02d}"
                 )
 
             media_title = "".join([media_title, media_episode_nr, media_episode_title])
-            media_description = episode.description
-            media_release = get_release_date(episode.releaseDate)
+            media_release = get_release_date(calendar_item.episode.releaseDate)
 
-    if media_release is not None:
-        return {
-            "title": media_title,
-            "description": media_description,
-            "release": media_release,
-        }
+    return CalendarEvent(
+        summary=media_title,
+        description=media_description,
+        location=media_poster,
+        start=media_release,
+        end=media_release + timedelta(hours=2),
+    )
 
 
 def get_release_date(due) -> datetime | date | None:
