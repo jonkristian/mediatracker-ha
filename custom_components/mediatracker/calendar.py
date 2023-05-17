@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 from homeassistant.util import dt
+import json
 
 from pymediatracker.objects.calendar import MediaTrackerCalendar
 from pymediatracker.exceptions import MediaTrackerException
@@ -28,7 +29,7 @@ async def async_setup_entry(
     entities = []
 
     for entity in coordinator.data.entities:
-        entities.append(MediaTrackerCalendar(coordinator, entity))
+        entities.append(MediaTrackerCalendar(coordinator, entry, entity))
 
     async_add_entities(entities, True)
 
@@ -39,10 +40,12 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
+        entry: ConfigEntry,
         entity: str,
     ) -> None:
         """Initialize the MediaTracker entity."""
         super().__init__(coordinator)
+        self._entry = entry
         self._entity = entity
         self._attr_unique_id = self._entity["key"]
         self._attr_name = self._entity["name"]
@@ -66,58 +69,89 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
         end = end_date.strftime("%Y-%m-%d")
 
         for calendar_item in await self.coordinator.data.get_calendar_items(start, end):
-           if self._attr_unique_id in calendar_item.mediaItem.mediaType:
-                event = await get_calendar_item(self.coordinator.data, calendar_item)
+            if self._attr_unique_id in calendar_item.mediaItem.mediaType:
+                event = await self.get_calendar_item(calendar_item)
                 if event is not None:
                     events.append(event)
 
         return events
 
+    async def get_calendar_item(self, calendar_item) -> object | None:
+        """Return formatted calendar entry based on media type."""
+        media = calendar_item.mediaItem
+        media_details = await self.coordinator.data.get_item(media.id)
 
-async def get_calendar_item(client, calendar_item) -> object | None:
-    """Return formatted calendar entry based on media type."""
-    media = calendar_item.mediaItem
-
-    media_title = media.title
-    media_release = get_release_date(calendar_item.releaseDate)
-    media_poster = ""
-    media_description = ""
-    media_episode_title = ""
-    media_episode_nr = ""
-
-    #if media.mediaType == "audiobook":
-    #if media.mediaType == "book":
-    #if media.mediaType == "video_game":
-    #if media.mediaType == "movie":
-
-    if media.mediaType == "tv":
-        media_title = f"{media.title}"
+        media_title = media.title
         media_release = get_release_date(calendar_item.releaseDate)
+        media_description = ""
+        media_episode_title = ""
+        media_episode_nr = ""
+
+        media_extra_data = {
+            'host': self._entry.data.get("host"),
+            'token': self._entry.data.get("token"),
+            'poster': media_details.poster,
+            'backdrop': media_details.backdrop,
+            'source': media_details.source,
+            'color': "#dfdfdf"
+        }
 
         if EXPAND_DETAILS is True:
-            item_details = await client.get_item(media.id)
-            media_description = item_details.overview
-            media_poster = item_details.poster
+            media_description = media_details.overview
 
-        if calendar_item.episode.episodeNumber is not None:
-            if calendar_item.episode.title and EPISODE_SPOILERS is True:
-                media_episode_title = f" - {calendar_item.episode.title}"
+        # if media.mediaType == "audiobook":
+        # if media.mediaType == "book":
+        # if media.mediaType == "video_game":
+        # if media.mediaType == "movie":
+
+        if media.mediaType == "tv":
+            media_title = f"{media.title}"
+            media_release = get_release_date(calendar_item.releaseDate)
 
             if calendar_item.episode.episodeNumber is not None:
-                media_episode_nr = (
-                    f" S{calendar_item.episode.seasonNumber:02d}E{calendar_item.episode.episodeNumber:02d}"
-                )
+                if calendar_item.episode.title and EPISODE_SPOILERS is True:
+                    media_episode_title = f" - {calendar_item.episode.title}"
 
-            media_title = "".join([media_title, media_episode_nr, media_episode_title])
-            media_release = get_release_date(calendar_item.episode.releaseDate)
+                if calendar_item.episode.episodeNumber is not None:
+                    media_episode_nr = (
+                        f" S{calendar_item.episode.seasonNumber:02d}E{calendar_item.episode.episodeNumber:02d}"
+                    )
 
-    return CalendarEvent(
-        summary=media_title,
-        description=media_description,
-        location=media_poster,
-        start=media_release,
-        end=media_release + timedelta(hours=2),
+                media_title = "".join(
+                    [media_title, media_episode_nr, media_episode_title])
+                media_release = get_release_date(
+                    calendar_item.episode.releaseDate)
+
+                if EXPAND_DETAILS is True:
+                    media_description = get_episode_description(media_details.seasons, calendar_item.episode.id)
+
+
+        return CalendarEvent(
+            summary=media_title,
+            description=media_description,
+            location=json.dumps(media_extra_data),
+            start=media_release,
+            end=media_release + timedelta(hours=2),
+        )
+
+
+def get_episode_description(seasons, episode_id):
+    """Find season episode and return its description"""
+    episode = next(
+        (
+            e
+            for season in seasons
+            for e in season.episodes
+            if e.id == episode_id
+        ),
+        None
     )
+
+    if episode:
+        episode_description = episode.description
+        return episode_description
+    else:
+        return None
 
 
 def get_release_date(due) -> datetime | date | None:
