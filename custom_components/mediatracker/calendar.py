@@ -2,8 +2,8 @@
 from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
-from homeassistant.util import dt
 import json
+from homeassistant.util import dt
 
 from pymediatracker.objects.calendar import MediaTrackerCalendar
 from pymediatracker.exceptions import MediaTrackerException
@@ -29,26 +29,28 @@ async def async_setup_entry(
     entities = []
 
     for entity in coordinator.data.entities:
-        entities.append(MediaTrackerCalendar(coordinator, entry, entity))
+        name = entity["name"]
+        unique_id = entity["key"]
+        entities.append(MTrackerCalendar(coordinator, entry, name, unique_id))
 
     async_add_entities(entities, True)
 
 
-class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
+class MTrackerCalendar(MediaTrackerEntity, CalendarEntity):
     """Define a MediaTracker calendar."""
 
     def __init__(
         self,
         coordinator: DataUpdateCoordinator,
         entry: ConfigEntry,
-        entity: str,
+        name: str,
+        unique_id: str
     ) -> None:
         """Initialize the MediaTracker entity."""
         super().__init__(coordinator)
         self._entry = entry
-        self._entity = entity
-        self._attr_unique_id = self._entity["key"]
-        self._attr_name = self._entity["name"]
+        self._attr_unique_id = unique_id
+        self._attr_name = name
         self._event: CalendarEvent | None = None
 
     @property
@@ -86,29 +88,29 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
         media_description = ""
         media_episode_title = ""
         media_episode_nr = ""
+        media_sources = ""
+        media_rating = ""
 
-        media_extra_data = {
-            'host': self._entry.data.get("host"),
-            'token': self._entry.data.get("token"),
-            'poster': media_details.poster,
-            'backdrop': media_details.backdrop,
-            'tmdb': media_details.tmdbId,
-            'tmdb_rating': media_details.tmdbRating,
-            'imdb': media_details.imdbId,
-            'tvmazeId': media_details.tvmazeId,
-            'igdb': media_details.igdbId,
-            'openlibrary': media_details.openlibraryId,
-            'developer': media_details.developer,
-            'url':  media_details.url,
-        }
+        if media_details.tmdbId is not None:
+            media_sources = {
+                "imdb": f"https://www.imdb.com/title/{media_details.imdbId}",
+                "tmdb": f"https://www.themoviedb.org/{media_details.mediaType}/{media_details.tmdbId}"
+            }
+
+        if media_details.tmdbRating is not None:
+            media_rating = media_details.tmdbRating
 
         if EXPAND_DETAILS is True:
             media_description = media_details.overview
 
         # if media.mediaType == "audiobook":
         # if media.mediaType == "book":
-        # if media.mediaType == "video_game":
         # if media.mediaType == "movie":
+
+        if media.mediaType == "video_game":
+            media_sources = {
+                "igdb": f"https://www.igdb.com/games/{media_details.title.lower().replace(' ', '-')}"
+            }
 
         if media.mediaType == "tv":
             media_title = f"{media.title}"
@@ -129,7 +131,22 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
                     calendar_item.episode.releaseDate)
 
                 if EXPAND_DETAILS is True:
-                    media_description = get_episode_description(media_details.seasons, calendar_item.episode.id)
+                    media_description = get_episode_description(
+                        media_details.seasons,
+                        calendar_item.episode.id
+                    )
+
+
+        media_extra_data = {
+            'host': self._entry.data.get("host"),
+            'token': self._entry.data.get("token"),
+            'poster': media_details.poster,
+            'backdrop': media_details.backdrop,
+            'sources': media_sources,
+            'tmdb_rating': media_rating,
+            'developer': media_details.developer,
+            'url':  media_details.url,
+        }
 
 
         return CalendarEvent(
