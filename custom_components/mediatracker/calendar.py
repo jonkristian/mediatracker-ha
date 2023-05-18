@@ -92,8 +92,14 @@ class MediaTrackerCalendar(MediaTrackerEntity, CalendarEntity):
             'token': self._entry.data.get("token"),
             'poster': media_details.poster,
             'backdrop': media_details.backdrop,
-            'source': media_details.source,
-            'color': "#dfdfdf"
+            'tmdb': media_details.tmdbId,
+            'tmdb_rating': media_details.tmdbRating,
+            'imdb': media_details.imdbId,
+            'tvmazeId': media_details.tvmazeId,
+            'igdb': media_details.igdbId,
+            'openlibrary': media_details.openlibraryId,
+            'developer': media_details.developer,
+            'url':  media_details.url,
         }
 
         if EXPAND_DETAILS is True:

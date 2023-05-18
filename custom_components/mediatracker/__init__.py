@@ -41,7 +41,7 @@ CONFIG_SCHEMA = vol.Schema(
 PLATFORMS = [Platform.CALENDAR]
 
 _LOGGER = logging.getLogger(__name__)
-SCAN_INTERVAL = timedelta(seconds=120)
+SCAN_INTERVAL = timedelta(seconds=600)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
